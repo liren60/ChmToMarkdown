@@ -3,6 +3,7 @@ using Microsoft.Win32;
 using System.ComponentModel;
 using System.IO;
 using System.Windows;
+using System.Windows.Media;
 using System.Windows.Media.Animation;
 
 namespace ChmToMarkdown
@@ -12,6 +13,8 @@ namespace ChmToMarkdown
         private readonly MainViewModel _vm = new();
         private Storyboard? _spinnerSB;
         private Storyboard? _glowSB;
+        private Storyboard? _extractDoneSB;
+        private Storyboard? _convertDoneSB;
 
         public MainWindow()
         {
@@ -29,7 +32,7 @@ namespace ChmToMarkdown
                 RepeatBehavior = RepeatBehavior.Forever
             };
             Storyboard.SetTargetName(spinAnim, "SpinnerRotate");
-            Storyboard.SetTargetProperty(spinAnim, new System.Windows.PropertyPath("Angle"));
+            Storyboard.SetTargetProperty(spinAnim, new PropertyPath("Angle"));
             _spinnerSB = new Storyboard();
             _spinnerSB.Children.Add(spinAnim);
 
@@ -40,9 +43,56 @@ namespace ChmToMarkdown
                 RepeatBehavior = RepeatBehavior.Forever
             };
             Storyboard.SetTargetName(glowAnim, "ProgressGlow");
-            Storyboard.SetTargetProperty(glowAnim, new System.Windows.PropertyPath("Opacity"));
+            Storyboard.SetTargetProperty(glowAnim, new PropertyPath("Opacity"));
             _glowSB = new Storyboard();
             _glowSB.Children.Add(glowAnim);
+
+            // 完成徽章：3次快速缩放闪烁后稳定
+            _extractDoneSB = BuildDoneBadgeSB("ExtractDoneBadge");
+            _convertDoneSB = BuildDoneBadgeSB("ConvertDoneBadge");
+        }
+
+        private static Storyboard BuildDoneBadgeSB(string targetName)
+        {
+            var sb = new Storyboard();
+            var dur = new Duration(System.TimeSpan.FromMilliseconds(120));
+
+            // 3次 scale 脉冲：1→1.25→1 ×3，然后稳定在1
+            double[] keyTimes = [0, 120, 240, 360, 480, 600, 720];
+            double[] scaleX   = [1, 1.28, 1, 1.20, 1, 1.12, 1];
+
+            var animX = new DoubleAnimationUsingKeyFrames();
+            var animY = new DoubleAnimationUsingKeyFrames();
+            for (int i = 0; i < keyTimes.Length; i++)
+            {
+                var kfX = new LinearDoubleKeyFrame(scaleX[i],
+                    KeyTime.FromTimeSpan(System.TimeSpan.FromMilliseconds(keyTimes[i])));
+                var kfY = new LinearDoubleKeyFrame(scaleX[i],
+                    KeyTime.FromTimeSpan(System.TimeSpan.FromMilliseconds(keyTimes[i])));
+                animX.KeyFrames.Add(kfX);
+                animY.KeyFrames.Add(kfY);
+            }
+
+            Storyboard.SetTargetName(animX, targetName);
+            Storyboard.SetTargetProperty(animX, new PropertyPath("RenderTransform.ScaleX"));
+            Storyboard.SetTargetName(animY, targetName);
+            Storyboard.SetTargetProperty(animY, new PropertyPath("RenderTransform.ScaleY"));
+
+            // 同时做一次颜色从白色闪到正常的 Opacity 效果：0→1
+            var opacAnim = new DoubleAnimationUsingKeyFrames();
+            opacAnim.KeyFrames.Add(new LinearDoubleKeyFrame(0,   KeyTime.FromTimeSpan(System.TimeSpan.Zero)));
+            opacAnim.KeyFrames.Add(new LinearDoubleKeyFrame(1,   KeyTime.FromTimeSpan(System.TimeSpan.FromMilliseconds(60))));
+            opacAnim.KeyFrames.Add(new LinearDoubleKeyFrame(0.4, KeyTime.FromTimeSpan(System.TimeSpan.FromMilliseconds(180))));
+            opacAnim.KeyFrames.Add(new LinearDoubleKeyFrame(1,   KeyTime.FromTimeSpan(System.TimeSpan.FromMilliseconds(300))));
+            opacAnim.KeyFrames.Add(new LinearDoubleKeyFrame(0.6, KeyTime.FromTimeSpan(System.TimeSpan.FromMilliseconds(420))));
+            opacAnim.KeyFrames.Add(new LinearDoubleKeyFrame(1,   KeyTime.FromTimeSpan(System.TimeSpan.FromMilliseconds(540))));
+            Storyboard.SetTargetName(opacAnim, targetName);
+            Storyboard.SetTargetProperty(opacAnim, new PropertyPath("Opacity"));
+
+            sb.Children.Add(animX);
+            sb.Children.Add(animY);
+            sb.Children.Add(opacAnim);
+            return sb;
         }
 
         private void Vm_PropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -56,6 +106,25 @@ namespace ChmToMarkdown
             {
                 if (_vm.IsConverting) _glowSB?.Begin(this, true);
                 else _glowSB?.Stop(this);
+            }
+            else if (e.PropertyName == nameof(_vm.ExtractDone))
+            {
+                if (_vm.ExtractDone)
+                {
+                    // 为徽章设置 ScaleTransform 中心点
+                    ExtractDoneBadge.RenderTransformOrigin = new Point(0.5, 0.5);
+                    ExtractDoneBadge.RenderTransform = new ScaleTransform(1, 1);
+                    _extractDoneSB?.Begin(this, true);
+                }
+            }
+            else if (e.PropertyName == nameof(_vm.ConvertDone))
+            {
+                if (_vm.ConvertDone)
+                {
+                    ConvertDoneBadge.RenderTransformOrigin = new Point(0.5, 0.5);
+                    ConvertDoneBadge.RenderTransform = new ScaleTransform(1, 1);
+                    _convertDoneSB?.Begin(this, true);
+                }
             }
         }
 

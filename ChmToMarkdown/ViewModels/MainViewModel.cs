@@ -102,6 +102,8 @@ namespace ChmToMarkdown.ViewModels
                 OnPropertyChanged(nameof(ExtractButtonText));
                 OnPropertyChanged(nameof(IsExtracting));
                 OnPropertyChanged(nameof(IsConverting));
+                OnPropertyChanged(nameof(ExtractDone));
+                OnPropertyChanged(nameof(ConvertDone));
             }
         }
 
@@ -111,6 +113,8 @@ namespace ChmToMarkdown.ViewModels
         public bool   CanReset          => !IsBusy && (Step != AppStep.Idle || HasUnfinishedTask);
         public bool   IsExtracting      => IsBusy && Step == AppStep.Extracting;
         public bool   IsConverting      => IsBusy && Step == AppStep.Converting;
+        public bool   ExtractDone       => Step == AppStep.WaitingConfirm || Step == AppStep.Done;
+        public bool   ConvertDone       => Step == AppStep.Done;
         public string ExtractButtonText => Step == AppStep.Done ? "重新解压" : "第一步：解压 CHM";
 
         public void ClearLog() { _logBuilder.Clear(); LogText = string.Empty; }
