@@ -97,6 +97,7 @@ namespace ChmToMarkdown.ViewModels
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(CanExtract));
                 OnPropertyChanged(nameof(CanConvert));
+                OnPropertyChanged(nameof(CanCancel));
                 OnPropertyChanged(nameof(CanReset));
                 OnPropertyChanged(nameof(ExtractButtonText));
                 OnPropertyChanged(nameof(IsExtracting));
@@ -199,8 +200,10 @@ namespace ChmToMarkdown.ViewModels
             AppendLog("开始解压...", true);
             try
             {
-                var p = new Progress<string>(msg => AppendLog(msg));
-                _extractedDir = await _service.ExtractAsync(ChmPath, OutputDir, p, _cts.Token);
+                var p  = new Progress<string>(msg => AppendLog(msg));
+                var pp = new Progress<int>(pct => { Progress = pct; ProgressText = $"{pct}%"; });
+                _extractedDir = await _service.ExtractAsync(ChmPath, OutputDir, p, pp, _cts.Token);
+                Progress = 100; ProgressText = "100%";
                 AppendLog("解压完成。", true);
                 Step = AppStep.WaitingConfirm;
             }

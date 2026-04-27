@@ -57,6 +57,12 @@ namespace ChmToMarkdown.Services
         public Task<string> ExtractAsync(string chmPath, string outputDir,
             IProgress<string> progress, CancellationToken ct = default)
         {
+            return ExtractAsync(chmPath, outputDir, progress, null, ct);
+        }
+
+        public Task<string> ExtractAsync(string chmPath, string outputDir,
+            IProgress<string> progress, IProgress<int>? progressPct, CancellationToken ct = default)
+        {
             return Task.Run(() =>
             {
                 ct.ThrowIfCancellationRequested();
@@ -72,7 +78,7 @@ namespace ChmToMarkdown.Services
                 var psi = new ProcessStartInfo
                 {
                     FileName = sevenZip,
-                    Arguments = $"x \"{chmPath}\" -o\"{extractedDir}\" -y",
+                    Arguments = $"x \"{chmPath}\" -o\"{extractedDir}\" -y -bsp1",
                     UseShellExecute = false,
                     CreateNoWindow = true,
                     RedirectStandardOutput = true,
@@ -83,10 +89,30 @@ namespace ChmToMarkdown.Services
                     ?? throw new InvalidOperationException("无法启动 7z.exe");
                 using var reg = ct.Register(() => { try { proc.Kill(); } catch { } });
 
+                // 实时读取输出解析进度百分比
+                string? line;
+                while ((line = proc.StandardOutput.ReadLine()) != null)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    // 7z -bsp1 输出格式: "  3% - filename" 或 "  3%"
+                    var trimmed = line.Trim();
+                    if (trimmed.Length >= 3 && trimmed[trimmed.Length - 1] == '%'
+                        || (trimmed.IndexOf('%') is int pi && pi > 0 && pi < 5))
+                    {
+                        int pctIdx = trimmed.IndexOf('%');
+                        if (pctIdx > 0 && int.TryParse(trimmed.Substring(0, pctIdx).Trim(), out int pct))
+                        {
+                            progressPct?.Report(pct);
+                            progress.Report($"解压中 {pct}%...");
+                        }
+                    }
+                }
+
                 proc.WaitForExit(120_000);
                 ct.ThrowIfCancellationRequested();
 
                 int fileCount = Directory.GetFiles(extractedDir, "*", SearchOption.AllDirectories).Length;
+                progressPct?.Report(100);
                 progress.Report($"解压完成，共 {fileCount} 个文件。");
 
                 return extractedDir;

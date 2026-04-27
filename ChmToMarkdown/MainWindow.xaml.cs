@@ -78,6 +78,11 @@ namespace ChmToMarkdown
         private void ClearLog_Click(object sender, RoutedEventArgs e) => _vm.ClearLog();
         private void Cancel_Click(object sender, RoutedEventArgs e) => _vm.Cancel();
         private void Reset_Click(object sender, RoutedEventArgs e) => _vm.Reset();
+        private void OpenLogDir_Click(object sender, RoutedEventArgs e)
+        {
+            string logDir = System.IO.Path.GetDirectoryName(_vm.LogFilePath) ?? AppContext.BaseDirectory;
+            System.Diagnostics.Process.Start("explorer.exe", logDir);
+        }
 
         private void File_DragOver(object sender, DragEventArgs e)
         {

@@ -269,11 +269,6 @@
                             <Button Grid.Row="2" Content="{Binding HasUnfinishedTask, Converter={StaticResource ContinueTextConv}}"
                                     Width="160" Style="{StaticResource SuccessBtn}" IsEnabled="{Binding CanConvert}"
                                     Click="Convert_Click"/>
-                            <!-- 转换进度文字 -->
-                            <TextBlock Grid.Row="4" Text="{Binding ProgressText}"
-                                       HorizontalAlignment="Center" FontSize="11" Foreground="#16A34A"
-                                       FontWeight="SemiBold"
-                                       Visibility="{Binding IsConverting, Converter={StaticResource BoolToVis}}"/>
                         </Grid>
 
                         <!-- 箭头 -->
@@ -357,8 +352,12 @@
                     <Border CornerRadius="8,8,0,0" Background="#F8FAFC">
                         <Grid Margin="14,10,14,10">
                             <TextBlock Text="运行日志" FontSize="12" FontWeight="SemiBold" Foreground="#6B7280" VerticalAlignment="Center"/>
-                            <Button Content="清空" HorizontalAlignment="Right" Click="ClearLog_Click"
-                                    Style="{StaticResource SecondaryBtn}" Padding="10,4" FontSize="12"/>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <Button Content="📂 打开日志目录" Click="OpenLogDir_Click"
+                                        Style="{StaticResource SecondaryBtn}" Padding="10,4" FontSize="12" Margin="0,0,6,0"/>
+                                <Button Content="清空" Click="ClearLog_Click"
+                                        Style="{StaticResource SecondaryBtn}" Padding="10,4" FontSize="12"/>
+                            </StackPanel>
                         </Grid>
                     </Border>
                 </Grid>
