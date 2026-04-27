@@ -132,7 +132,9 @@ namespace ChmToMarkdown.Services
             {
                 ct.ThrowIfCancellationRequested();
 
-                string imagesDir = Path.Combine(outputDir, "images");
+                string mdDir    = Path.Combine(outputDir, "MD");
+                string imagesDir = Path.Combine(mdDir, "images");
+                Directory.CreateDirectory(mdDir);
                 Directory.CreateDirectory(imagesDir);
 
                 var allHtmlFiles = Directory.GetFiles(extractedDir, "*.htm", SearchOption.AllDirectories)
@@ -175,8 +177,8 @@ namespace ChmToMarkdown.Services
                             continue;
                         }
 
-                        // md 文件直接放 outputDir 根目录，不保留子目录层级
-                        string mdOutPath = Path.Combine(outputDir,
+                        // md 文件放 outputDir\MD\ 根目录
+                        string mdOutPath = Path.Combine(mdDir,
                             Path.ChangeExtension(Path.GetFileName(htmlFile), ".md"));
 
                         // images 文件夹和 md 文件同级，相对路径直接是 "images"
@@ -196,7 +198,7 @@ namespace ChmToMarkdown.Services
                 }
                 else
                 {
-                    string mdOutPath = Path.Combine(outputDir, "output.md");
+                    string mdOutPath = Path.Combine(mdDir, "output.md");
                     // 单文件模式用 StreamWriter 一次打开，避免每次 AppendAllText 的 open/close 开销
                     bool isAppend = completedSet.Count > 0;
                     using var sw = new StreamWriter(mdOutPath, isAppend, Encoding.UTF8);
