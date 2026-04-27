@@ -1,5 +1,6 @@
 using ChmToMarkdown.Services;
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.CompilerServices;
@@ -83,6 +84,8 @@ namespace ChmToMarkdown.ViewModels
                 OnPropertyChanged(nameof(CanExtract));
                 OnPropertyChanged(nameof(CanConvert));
                 OnPropertyChanged(nameof(CanCancel));
+                OnPropertyChanged(nameof(CanReset));
+                OnPropertyChanged(nameof(CanGenerateIndex));
                 OnPropertyChanged(nameof(IsExtracting));
                 OnPropertyChanged(nameof(IsConverting));
             }
@@ -116,6 +119,12 @@ namespace ChmToMarkdown.ViewModels
         public bool   ExtractDone       => Step == AppStep.WaitingConfirm || Step == AppStep.Done;
         public bool   ConvertDone       => Step == AppStep.Done;
         public string ExtractButtonText => Step == AppStep.Done ? "重新解压" : "第一步：解压 CHM";
+
+        // 只要 outputDir\extracted 和 outputDir\MD 都存在就可以生成索引
+        public bool CanGenerateIndex => !IsBusy
+            && !string.IsNullOrWhiteSpace(_outputDir)
+            && Directory.Exists(Path.Combine(_outputDir, "extracted"))
+            && Directory.Exists(Path.Combine(_outputDir, "MD"));
 
         public void ClearLog() { _logBuilder.Clear(); LogText = string.Empty; }
 
@@ -153,6 +162,43 @@ namespace ChmToMarkdown.ViewModels
             {
                 HasUnfinishedTask = false;
             }
+        }
+
+        public async Task GenerateIndexAsync()
+        {
+            IsBusy = true;
+            AppendLog("开始生成目录索引 index.md ...", true);
+            try
+            {
+                string extractedDir = Path.Combine(_outputDir, "extracted");
+                string mdDir        = Path.Combine(_outputDir, "MD");
+
+                await Task.Run(() =>
+                {
+                    var toc = TocService.ParseHhc(extractedDir);
+                    if (toc.Count == 0)
+                    {
+                        AppendLog("未在 extracted 目录中找到 .hhc 文件，无法生成索引。", true);
+                        return;
+                    }
+
+                    var mdFileMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var f in Directory.GetFiles(mdDir, "*.md", SearchOption.TopDirectoryOnly))
+                    {
+                        string mdName = Path.GetFileName(f);
+                        string htmKey = Path.ChangeExtension(mdName, ".htm").ToLowerInvariant();
+                        mdFileMap[htmKey] = mdName;
+                    }
+
+                    TocService.GenerateIndex(toc, mdDir, mdFileMap);
+                    AppendLog($"index.md 生成完成，共 {mdFileMap.Count} 个条目已索引。", true);
+                });
+            }
+            catch (Exception ex)
+            {
+                AppendLog($"生成 index.md 失败: {ex.Message}", true);
+            }
+            finally { IsBusy = false; }
         }
 
         public void Reset()

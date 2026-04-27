@@ -147,6 +147,7 @@ namespace ChmToMarkdown
         private void ClearLog_Click(object sender, RoutedEventArgs e) => _vm.ClearLog();
         private void Cancel_Click(object sender, RoutedEventArgs e) => _vm.Cancel();
         private void Reset_Click(object sender, RoutedEventArgs e) => _vm.Reset();
+        private async void GenerateIndex_Click(object sender, RoutedEventArgs e) => await _vm.GenerateIndexAsync();
 
         private void LogBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
             => LogBox.ScrollToEnd();

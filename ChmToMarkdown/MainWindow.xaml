@@ -339,6 +339,29 @@
                                 </Button.Style>
                             </Button>
                         </Grid>
+
+                        <!-- 生成索引按钮 -->
+                        <Grid Margin="10,0,0,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="4"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Text="索引" Style="{StaticResource FieldLabel}" HorizontalAlignment="Center"/>
+                            <Button Grid.Row="2" Content="📋 生成索引" Width="110"
+                                    IsEnabled="{Binding CanGenerateIndex}" Click="GenerateIndex_Click">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource SecondaryBtn}">
+                                        <Setter Property="Foreground" Value="#7C3AED"/>
+                                        <Style.Triggers>
+                                            <Trigger Property="IsEnabled" Value="False">
+                                                <Setter Property="Opacity" Value="0.4"/>
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </Grid>
                     </StackPanel>
 
                     <!-- 分隔线 -->
