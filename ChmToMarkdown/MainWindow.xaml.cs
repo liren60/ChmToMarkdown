@@ -147,10 +147,23 @@ namespace ChmToMarkdown
         private void ClearLog_Click(object sender, RoutedEventArgs e) => _vm.ClearLog();
         private void Cancel_Click(object sender, RoutedEventArgs e) => _vm.Cancel();
         private void Reset_Click(object sender, RoutedEventArgs e) => _vm.Reset();
+
+        private void LogBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+            => LogBox.ScrollToEnd();
+
         private void OpenLogDir_Click(object sender, RoutedEventArgs e)
         {
             string logDir = System.IO.Path.GetDirectoryName(_vm.LogFilePath) ?? AppContext.BaseDirectory;
             System.Diagnostics.Process.Start("explorer.exe", logDir);
+        }
+
+        private void OpenOutputDir_Click(object sender, RoutedEventArgs e)
+        {
+            string dir = _vm.OutputDir;
+            if (!string.IsNullOrWhiteSpace(dir) && Directory.Exists(dir))
+                System.Diagnostics.Process.Start("explorer.exe", dir);
+            else
+                MessageBox.Show("输出目录不存在或未设置。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private void File_DragOver(object sender, DragEventArgs e)
