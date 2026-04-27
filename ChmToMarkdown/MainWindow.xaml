@@ -221,7 +221,9 @@
                     </Grid.ColumnDefinitions>
 
                     <!-- 步骤按钮 -->
-                    <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <StackPanel Grid.Column="0" Orientation="Vertical">
+                        <!-- 第一行：步骤流程 -->
+                        <StackPanel Orientation="Horizontal">
                         <!-- 步骤1 -->
                         <Grid Margin="0,0,10,0">
                             <Grid.RowDefinitions>
@@ -290,20 +292,13 @@
                                            Foreground="White" FontWeight="SemiBold"/>
                             </Border>
                         </Grid>
+                        </StackPanel>
 
-                        <!-- 箭头 -->
-                        <TextBlock Text="›" FontSize="24" Foreground="#CBD5E1" VerticalAlignment="Bottom" Margin="10,0,10,6"/>
-
-                        <!-- 取消按钮 -->
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="4"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <TextBlock Grid.Row="0" Text="取消" Style="{StaticResource FieldLabel}" HorizontalAlignment="Center"/>
-                            <Button Grid.Row="2" Content="⏹ 中止" Width="100"
-                                    IsEnabled="{Binding CanCancel}" Click="Cancel_Click">
+                        <!-- 第二行：辅助操作按钮 -->
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                            <!-- 中止 -->
+                            <Button Content="⏹ 中止" Width="90"
+                                    IsEnabled="{Binding CanCancel}" Click="Cancel_Click" Margin="0,0,8,0">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource SecondaryBtn}">
                                         <Setter Property="Foreground" Value="#DC2626"/>
@@ -315,18 +310,9 @@
                                     </Style>
                                 </Button.Style>
                             </Button>
-                        </Grid>
-
-                        <!-- 重置按钮 -->
-                        <Grid Margin="10,0,0,0">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="4"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <TextBlock Grid.Row="0" Text="重置" Style="{StaticResource FieldLabel}" HorizontalAlignment="Center"/>
-                            <Button Grid.Row="2" Content="🔄 重置" Width="100"
-                                    IsEnabled="{Binding CanReset}" Click="Reset_Click">
+                            <!-- 重置 -->
+                            <Button Content="🔄 重置" Width="90"
+                                    IsEnabled="{Binding CanReset}" Click="Reset_Click" Margin="0,0,8,0">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource SecondaryBtn}">
                                         <Setter Property="Foreground" Value="#D97706"/>
@@ -338,17 +324,8 @@
                                     </Style>
                                 </Button.Style>
                             </Button>
-                        </Grid>
-
-                        <!-- 生成索引按钮 -->
-                        <Grid Margin="10,0,0,0">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="4"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <TextBlock Grid.Row="0" Text="索引" Style="{StaticResource FieldLabel}" HorizontalAlignment="Center"/>
-                            <Button Grid.Row="2" Content="📋 生成索引" Width="110"
+                            <!-- 生成索引 -->
+                            <Button Content="📋 生成索引" Width="110"
                                     IsEnabled="{Binding CanGenerateIndex}" Click="GenerateIndex_Click">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource SecondaryBtn}">
@@ -361,7 +338,7 @@
                                     </Style>
                                 </Button.Style>
                             </Button>
-                        </Grid>
+                        </StackPanel>
                     </StackPanel>
 
                     <!-- 分隔线 -->
