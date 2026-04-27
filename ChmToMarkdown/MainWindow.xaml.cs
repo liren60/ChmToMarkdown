@@ -77,6 +77,7 @@ namespace ChmToMarkdown
         private async void Convert_Click(object sender, RoutedEventArgs e) => await _vm.ConvertAsync();
         private void ClearLog_Click(object sender, RoutedEventArgs e) => _vm.ClearLog();
         private void Cancel_Click(object sender, RoutedEventArgs e) => _vm.Cancel();
+        private void Reset_Click(object sender, RoutedEventArgs e) => _vm.Reset();
 
         private void File_DragOver(object sender, DragEventArgs e)
         {

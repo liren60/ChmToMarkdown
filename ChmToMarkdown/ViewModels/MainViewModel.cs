@@ -71,7 +71,7 @@ namespace ChmToMarkdown.ViewModels
         public int    Progress         { get => _progress;         set { _progress = value;         OnPropertyChanged(); } }
         public string ProgressText     { get => _progressText;     set { _progressText = value;     OnPropertyChanged(); } }
         public bool   IsMultiFile      { get => _isMultiFile;      set { _isMultiFile = value;      OnPropertyChanged(); SaveSettings(); } }
-        public bool   HasUnfinishedTask{ get => _hasUnfinishedTask; set { _hasUnfinishedTask = value; OnPropertyChanged(); } }
+        public bool   HasUnfinishedTask{ get => _hasUnfinishedTask; set { _hasUnfinishedTask = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanReset)); } }
 
         public bool IsBusy
         {
@@ -97,6 +97,7 @@ namespace ChmToMarkdown.ViewModels
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(CanExtract));
                 OnPropertyChanged(nameof(CanConvert));
+                OnPropertyChanged(nameof(CanReset));
                 OnPropertyChanged(nameof(ExtractButtonText));
                 OnPropertyChanged(nameof(IsExtracting));
                 OnPropertyChanged(nameof(IsConverting));
@@ -106,6 +107,7 @@ namespace ChmToMarkdown.ViewModels
         public bool   CanExtract        => !IsBusy && !string.IsNullOrWhiteSpace(ChmPath) && !string.IsNullOrWhiteSpace(OutputDir) && (Step == AppStep.Idle || Step == AppStep.Done);
         public bool   CanConvert        => !IsBusy && Step == AppStep.WaitingConfirm;
         public bool   CanCancel         => IsBusy && (Step == AppStep.Extracting || Step == AppStep.Converting);
+        public bool   CanReset          => !IsBusy && (Step != AppStep.Idle || HasUnfinishedTask);
         public bool   IsExtracting      => IsBusy && Step == AppStep.Extracting;
         public bool   IsConverting      => IsBusy && Step == AppStep.Converting;
         public string ExtractButtonText => Step == AppStep.Done ? "重新解压" : "第一步：解压 CHM";
@@ -146,6 +148,25 @@ namespace ChmToMarkdown.ViewModels
             {
                 HasUnfinishedTask = false;
             }
+        }
+
+        public void Reset()
+        {
+            // 删除断点文件
+            if (!string.IsNullOrWhiteSpace(_outputDir))
+            {
+                var progFile = ConversionService.GetProgressFilePath(_outputDir);
+                if (File.Exists(progFile))
+                    try { File.Delete(progFile); } catch { }
+            }
+            // 重置状态
+            _extractedDir = null;
+            HasUnfinishedTask = false;
+            Step = AppStep.Idle;
+            Progress = 0;
+            ProgressText = string.Empty;
+            StatusText = "已重置，请重新选择 CHM 文件和输出目录，或重新解压。";
+            AppendLog("已重置任务，可从头开始。", true);
         }
 
         public string LogFilePath => Path.Combine(AppContext.BaseDirectory, "conversion.log");
