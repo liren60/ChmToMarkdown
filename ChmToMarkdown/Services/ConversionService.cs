@@ -166,6 +166,7 @@ namespace ChmToMarkdown.Services
                         ct.ThrowIfCancellationRequested();
 
                         string htmlFile = allHtmlFiles[i];
+                        // 用相对路径作为断点key，但输出时只取文件名，直接放到outputDir根目录
                         string relPath = Path.GetRelativePath(extractedDir, htmlFile);
 
                         if (completedSet.Contains(relPath))
@@ -174,28 +175,23 @@ namespace ChmToMarkdown.Services
                             continue;
                         }
 
-                        string mdRelPath = Path.ChangeExtension(relPath, ".md");
-                        string mdOutPath = Path.Combine(outputDir, mdRelPath);
-                        Directory.CreateDirectory(Path.GetDirectoryName(mdOutPath)!);
+                        // md 文件直接放 outputDir 根目录，不保留子目录层级
+                        string mdOutPath = Path.Combine(outputDir,
+                            Path.ChangeExtension(Path.GetFileName(htmlFile), ".md"));
 
-                        string imageRelativePrefix = Path.GetRelativePath(
-                            Path.GetDirectoryName(mdOutPath)!, imagesDir).Replace('\\', '/');
-
-                        string md = _converter.Convert(htmlFile, extractedDir, imagesDir, imageRelativePrefix);
+                        // images 文件夹和 md 文件同级，相对路径直接是 "images"
+                        string md = _converter.Convert(htmlFile, extractedDir, imagesDir, "images");
                         File.WriteAllText(mdOutPath, md, Encoding.UTF8);
 
                         prog.CompletedFiles.Add(relPath);
-                        // 每20个文件保存一次断点，减少磁盘写入
                         if (prog.CompletedFiles.Count % 20 == 0)
                             SaveProgress(prog, outputDir);
 
                         int pct = (i + 1) * 100 / total;
                         progressPct.Report(pct);
-                        // 每10个文件记一次日志
                         if ((i + 1) % 10 == 0 || i + 1 == total)
                             progress.Report($"转换进度 {pct}%，已完成 {i + 1}/{total} 个文件");
                     }
-                    // 确保最终断点被保存
                     SaveProgress(prog, outputDir);
                 }
                 else
