@@ -13,6 +13,7 @@
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
         <local:PercentToWidthConverter x:Key="PctToWidth"/>
+        <local:ContinueTextConverter x:Key="ContinueTextConv"/>
 
         <!-- 卡片样式 -->
         <Style x:Key="Card" TargetType="Border">
@@ -201,85 +202,124 @@
 
         <!-- 步骤 & 模式卡片 -->
         <Border Grid.Row="4" Style="{StaticResource Card}">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="20"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
+            <StackPanel>
+                <!-- 未完成任务提示横幅 -->
+                <Border Background="#FEF9C3" CornerRadius="6" Padding="12,8" Margin="0,0,0,12"
+                        Visibility="{Binding HasUnfinishedTask, Converter={StaticResource BoolToVis}}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="⚡" FontSize="14" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="检测到上次未完成的转换任务，点击【继续转换】从断点继续。"
+                                   FontSize="12" Foreground="#92400E" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
 
-                <!-- 步骤按钮 -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal">
-                    <!-- 步骤1 -->
-                    <Grid Margin="0,0,10,0">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="4"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="6"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Text="步骤 1" Style="{StaticResource FieldLabel}" HorizontalAlignment="Center"/>
-                        <Button Grid.Row="2" Content="{Binding ExtractButtonText}" Width="160"
-                                Style="{StaticResource PrimaryBtn}" IsEnabled="{Binding CanExtract}"
-                                Click="Extract_Click"/>
-                        <!-- Spinner -->
-                        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Center"
-                                    Visibility="{Binding IsExtracting, Converter={StaticResource BoolToVis}}">
-                            <Ellipse Width="16" Height="16" Margin="0,0,6,0">
-                                <Ellipse.RenderTransform>
-                                    <RotateTransform x:Name="SpinnerRotate" CenterX="8" CenterY="8"/>
-                                </Ellipse.RenderTransform>
-                                <Ellipse.Fill>
-                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                                        <GradientStop Color="#2563EB" Offset="0"/>
-                                        <GradientStop Color="Transparent" Offset="1"/>
-                                    </LinearGradientBrush>
-                                </Ellipse.Fill>
-                            </Ellipse>
-                            <TextBlock Text="正在解压..." FontSize="11" Foreground="#2563EB" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Grid>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="20"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
 
-                    <!-- 箭头 -->
-                    <TextBlock Text="›" FontSize="24" Foreground="#CBD5E1" VerticalAlignment="Bottom" Margin="0,0,10,6"/>
+                    <!-- 步骤按钮 -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal">
+                        <!-- 步骤1 -->
+                        <Grid Margin="0,0,10,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="4"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="6"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Text="步骤 1" Style="{StaticResource FieldLabel}" HorizontalAlignment="Center"/>
+                            <Button Grid.Row="2" Content="{Binding ExtractButtonText}" Width="160"
+                                    Style="{StaticResource PrimaryBtn}" IsEnabled="{Binding CanExtract}"
+                                    Click="Extract_Click"/>
+                            <!-- Spinner -->
+                            <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Center"
+                                        Visibility="{Binding IsExtracting, Converter={StaticResource BoolToVis}}">
+                                <Ellipse Width="16" Height="16" Margin="0,0,6,0">
+                                    <Ellipse.RenderTransform>
+                                        <RotateTransform x:Name="SpinnerRotate" CenterX="8" CenterY="8"/>
+                                    </Ellipse.RenderTransform>
+                                    <Ellipse.Fill>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                            <GradientStop Color="#2563EB" Offset="0"/>
+                                            <GradientStop Color="Transparent" Offset="1"/>
+                                        </LinearGradientBrush>
+                                    </Ellipse.Fill>
+                                </Ellipse>
+                                <TextBlock Text="正在解压..." FontSize="11" Foreground="#2563EB" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
 
-                    <!-- 步骤2 -->
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="4"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="6"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Text="步骤 2" Style="{StaticResource FieldLabel}" HorizontalAlignment="Center"/>
-                        <Button Grid.Row="2" Content="开始转换" Width="160"
-                                Style="{StaticResource SuccessBtn}" IsEnabled="{Binding CanConvert}"
-                                Click="Convert_Click"/>
-                        <!-- 转换进度文字 -->
-                        <TextBlock Grid.Row="4" Text="{Binding ProgressText}"
-                                   HorizontalAlignment="Center" FontSize="11" Foreground="#16A34A"
-                                   FontWeight="SemiBold"
-                                   Visibility="{Binding IsConverting, Converter={StaticResource BoolToVis}}"/>
-                    </Grid>
-                </StackPanel>
+                        <!-- 箭头 -->
+                        <TextBlock Text="›" FontSize="24" Foreground="#CBD5E1" VerticalAlignment="Bottom" Margin="0,0,10,6"/>
 
-                <!-- 分隔线 -->
-                <Rectangle Grid.Column="1" Width="1" Fill="#E2E8F0" VerticalAlignment="Stretch" Margin="0,0,0,0"/>
+                        <!-- 步骤2 -->
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="4"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="6"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Text="步骤 2" Style="{StaticResource FieldLabel}" HorizontalAlignment="Center"/>
+                            <Button Grid.Row="2" Content="{Binding HasUnfinishedTask, Converter={StaticResource ContinueTextConv}}"
+                                    Width="160" Style="{StaticResource SuccessBtn}" IsEnabled="{Binding CanConvert}"
+                                    Click="Convert_Click"/>
+                            <!-- 转换进度文字 -->
+                            <TextBlock Grid.Row="4" Text="{Binding ProgressText}"
+                                       HorizontalAlignment="Center" FontSize="11" Foreground="#16A34A"
+                                       FontWeight="SemiBold"
+                                       Visibility="{Binding IsConverting, Converter={StaticResource BoolToVis}}"/>
+                        </Grid>
 
-                <!-- 输出模式 -->
-                <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                    <TextBlock Text="输出模式" Style="{StaticResource FieldLabel}" Margin="0,0,0,8"/>
-                    <RadioButton Content="多文件（每页独立 .md）"
-                                 IsChecked="{Binding IsMultiFile}"
-                                 FontSize="13" Foreground="#374151" Margin="0,0,0,6"/>
-                    <RadioButton Content="单文件（合并为 output.md）"
-                                 IsChecked="{Binding IsMultiFile, Converter={StaticResource InverseBool}}"
-                                 FontSize="13" Foreground="#374151"/>
-                </StackPanel>
-            </Grid>
+                        <!-- 箭头 -->
+                        <TextBlock Text="›" FontSize="24" Foreground="#CBD5E1" VerticalAlignment="Bottom" Margin="10,0,10,6"/>
+
+                        <!-- 取消按钮 -->
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="4"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Text="取消" Style="{StaticResource FieldLabel}" HorizontalAlignment="Center"/>
+                            <Button Grid.Row="2" Content="⏹ 中止" Width="100"
+                                    IsEnabled="{Binding CanCancel}" Click="Cancel_Click">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource SecondaryBtn}">
+                                        <Setter Property="Foreground" Value="#DC2626"/>
+                                        <Style.Triggers>
+                                            <Trigger Property="IsEnabled" Value="False">
+                                                <Setter Property="Opacity" Value="0.4"/>
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- 分隔线 -->
+                    <Rectangle Grid.Column="1" Width="1" Fill="#E2E8F0" VerticalAlignment="Stretch"/>
+
+                    <!-- 输出模式 -->
+                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                        <TextBlock Text="输出模式" Style="{StaticResource FieldLabel}" Margin="0,0,0,8"/>
+                        <RadioButton Content="多文件（每页独立 .md）"
+                                     IsChecked="{Binding IsMultiFile}"
+                                     FontSize="13" Foreground="#374151" Margin="0,0,0,6"/>
+                        <RadioButton Content="单文件（合并为 output.md）"
+                                     IsChecked="{Binding IsMultiFile, Converter={StaticResource InverseBool}}"
+                                     FontSize="13" Foreground="#374151"/>
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
         </Border>
+
 
         <!-- 日志卡片 -->
         <Border Grid.Row="6" Style="{StaticResource Card}" Padding="0">

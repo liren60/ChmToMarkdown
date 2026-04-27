@@ -1,9 +1,10 @@
-﻿using ChmToMarkdown.Services;
+using ChmToMarkdown.Services;
 using System;
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace ChmToMarkdown.ViewModels
@@ -15,6 +16,7 @@ namespace ChmToMarkdown.ViewModels
         private readonly ConversionService _service = new();
         private readonly StringBuilder _logBuilder = new();
         private DateTime _lastLogFlush = DateTime.MinValue;
+        private CancellationTokenSource? _cts;
 
         private string _chmPath = string.Empty;
         private string _outputDir = string.Empty;
@@ -26,6 +28,7 @@ namespace ChmToMarkdown.ViewModels
         private bool _isMultiFile = true;
         private AppStep _step = AppStep.Idle;
         private string? _extractedDir;
+        private bool _hasUnfinishedTask;
 
         public MainViewModel()
         {
@@ -34,7 +37,10 @@ namespace ChmToMarkdown.ViewModels
             _outputDir = s.OutputDir;
             _isMultiFile = s.IsMultiFile;
             if (!string.IsNullOrWhiteSpace(_outputDir))
+            {
                 DetectExistingExtracted();
+                DetectUnfinishedConversion();
+            }
         }
 
         private void SaveSettings() =>
@@ -56,14 +62,16 @@ namespace ChmToMarkdown.ViewModels
                 OnPropertyChanged(nameof(CanExtract));
                 SaveSettings();
                 DetectExistingExtracted();
+                DetectUnfinishedConversion();
             }
         }
 
-        public string StatusText   { get => _statusText;   set { _statusText = value;   OnPropertyChanged(); } }
-        public string LogText      { get => _logText;      private set { _logText = value; OnPropertyChanged(); } }
-        public int    Progress     { get => _progress;     set { _progress = value;     OnPropertyChanged(); } }
-        public string ProgressText { get => _progressText; set { _progressText = value; OnPropertyChanged(); } }
-        public bool   IsMultiFile  { get => _isMultiFile;  set { _isMultiFile = value;  OnPropertyChanged(); SaveSettings(); } }
+        public string StatusText       { get => _statusText;       set { _statusText = value;       OnPropertyChanged(); } }
+        public string LogText          { get => _logText;          private set { _logText = value;  OnPropertyChanged(); } }
+        public int    Progress         { get => _progress;         set { _progress = value;         OnPropertyChanged(); } }
+        public string ProgressText     { get => _progressText;     set { _progressText = value;     OnPropertyChanged(); } }
+        public bool   IsMultiFile      { get => _isMultiFile;      set { _isMultiFile = value;      OnPropertyChanged(); SaveSettings(); } }
+        public bool   HasUnfinishedTask{ get => _hasUnfinishedTask; set { _hasUnfinishedTask = value; OnPropertyChanged(); } }
 
         public bool IsBusy
         {
@@ -74,6 +82,7 @@ namespace ChmToMarkdown.ViewModels
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(CanExtract));
                 OnPropertyChanged(nameof(CanConvert));
+                OnPropertyChanged(nameof(CanCancel));
                 OnPropertyChanged(nameof(IsExtracting));
                 OnPropertyChanged(nameof(IsConverting));
             }
@@ -94,13 +103,20 @@ namespace ChmToMarkdown.ViewModels
             }
         }
 
-        public bool CanExtract    => !IsBusy && !string.IsNullOrWhiteSpace(ChmPath) && !string.IsNullOrWhiteSpace(OutputDir) && (Step == AppStep.Idle || Step == AppStep.Done);
-        public bool CanConvert    => !IsBusy && Step == AppStep.WaitingConfirm;
-        public bool IsExtracting  => IsBusy && Step == AppStep.Extracting;
-        public bool IsConverting  => IsBusy && Step == AppStep.Converting;
+        public bool   CanExtract        => !IsBusy && !string.IsNullOrWhiteSpace(ChmPath) && !string.IsNullOrWhiteSpace(OutputDir) && (Step == AppStep.Idle || Step == AppStep.Done);
+        public bool   CanConvert        => !IsBusy && Step == AppStep.WaitingConfirm;
+        public bool   CanCancel         => IsBusy && (Step == AppStep.Extracting || Step == AppStep.Converting);
+        public bool   IsExtracting      => IsBusy && Step == AppStep.Extracting;
+        public bool   IsConverting      => IsBusy && Step == AppStep.Converting;
         public string ExtractButtonText => Step == AppStep.Done ? "重新解压" : "第一步：解压 CHM";
 
         public void ClearLog() { _logBuilder.Clear(); LogText = string.Empty; }
+
+        public void Cancel()
+        {
+            _cts?.Cancel();
+            AppendLog("正在取消...", true);
+        }
 
         private void DetectExistingExtracted()
         {
@@ -117,9 +133,23 @@ namespace ChmToMarkdown.ViewModels
             }
         }
 
+        private void DetectUnfinishedConversion()
+        {
+            if (string.IsNullOrWhiteSpace(_outputDir)) return;
+            var prog = ConversionService.LoadProgress(_outputDir);
+            if (prog != null && !prog.Finished && prog.CompletedFiles.Count > 0)
+            {
+                HasUnfinishedTask = true;
+                AppendLog($"[检测] 发现未完成的转换任务（已完成 {prog.CompletedFiles.Count} 个文件），点击【继续转换】可从断点继续。", true);
+            }
+            else
+            {
+                HasUnfinishedTask = false;
+            }
+        }
+
         public string LogFilePath => Path.Combine(AppContext.BaseDirectory, "conversion.log");
 
-        // 节流：每 150ms 最多刷新一次 UI 日志，避免大量文件时 UI 阻塞
         private void AppendLog(string msg, bool forceFlush = false)
         {
             string line = $"[{DateTime.Now:HH:mm:ss}] {msg}";
@@ -139,6 +169,7 @@ namespace ChmToMarkdown.ViewModels
 
         public async Task ExtractAsync()
         {
+            _cts = new CancellationTokenSource();
             IsBusy = true;
             Step = AppStep.Extracting;
             Progress = 0;
@@ -148,9 +179,14 @@ namespace ChmToMarkdown.ViewModels
             try
             {
                 var p = new Progress<string>(msg => AppendLog(msg));
-                _extractedDir = await _service.ExtractAsync(ChmPath, OutputDir, p);
+                _extractedDir = await _service.ExtractAsync(ChmPath, OutputDir, p, _cts.Token);
                 AppendLog("解压完成。", true);
                 Step = AppStep.WaitingConfirm;
+            }
+            catch (OperationCanceledException)
+            {
+                AppendLog("已取消解压。", true);
+                Step = AppStep.Idle;
             }
             catch (Exception ex)
             {
@@ -158,30 +194,43 @@ namespace ChmToMarkdown.ViewModels
                 if (ex.InnerException != null) AppendLog($"详情: {ex.InnerException.Message}", true);
                 Step = AppStep.Idle;
             }
-            finally { IsBusy = false; }
+            finally { IsBusy = false; _cts = null; }
         }
 
         public async Task ConvertAsync()
         {
             if (_extractedDir == null) return;
+            _cts = new CancellationTokenSource();
             IsBusy = true;
             Step = AppStep.Converting;
-            Progress = 0;
-            ProgressText = "0%";
-            AppendLog("开始转换...", true);
+            HasUnfinishedTask = false;
+
+            var existing = ConversionService.LoadProgress(_outputDir);
+            int startPct = existing != null && !existing.Finished
+                ? existing.CompletedFiles.Count * 100 / Math.Max(1,
+                    Directory.GetFiles(_extractedDir, "*.htm", SearchOption.AllDirectories).Length +
+                    Directory.GetFiles(_extractedDir, "*.html", SearchOption.AllDirectories).Length)
+                : 0;
+            Progress = startPct;
+            ProgressText = startPct > 0 ? $"{startPct}% (继续)" : "0%";
+            AppendLog(startPct > 0 ? $"从断点继续转换（已完成约 {startPct}%）..." : "开始转换...", true);
+
             try
             {
                 var mode = IsMultiFile ? ConversionMode.MultiFile : ConversionMode.SingleFile;
                 var p  = new Progress<string>(msg => AppendLog(msg));
-                var pp = new Progress<int>(pct =>
-                {
-                    Progress = pct;
-                    ProgressText = $"{pct}%";
-                });
-                await _service.ConvertAsync(_extractedDir, OutputDir, mode, p, pp);
+                var pp = new Progress<int>(pct => { Progress = pct; ProgressText = $"{pct}%"; });
+                await _service.ConvertAsync(_extractedDir, OutputDir, mode, p, pp, _cts.Token);
                 ProgressText = "100%";
                 AppendLog("转换完成！", true);
+                HasUnfinishedTask = false;
                 Step = AppStep.Done;
+            }
+            catch (OperationCanceledException)
+            {
+                AppendLog("已取消转换，进度已保存，下次启动可继续。", true);
+                HasUnfinishedTask = true;
+                Step = AppStep.WaitingConfirm;
             }
             catch (Exception ex)
             {
@@ -189,7 +238,7 @@ namespace ChmToMarkdown.ViewModels
                 if (ex.InnerException != null) AppendLog($"详情: {ex.InnerException.Message}", true);
                 Step = AppStep.WaitingConfirm;
             }
-            finally { IsBusy = false; }
+            finally { IsBusy = false; _cts = null; }
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;

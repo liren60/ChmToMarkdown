@@ -13,4 +13,9 @@
     <PackageReference Include="ReverseMarkdown" Version="5.3.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="Tools\7z.exe" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Tools\7z.dll" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
