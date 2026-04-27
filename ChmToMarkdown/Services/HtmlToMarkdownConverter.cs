@@ -54,6 +54,26 @@ namespace ChmToMarkdown.Services
                 }
             }
 
+            // 把 <a href="xxxx.htm"> 的链接目标改成 .md，方便 Markdown 互相跳转
+            var linkNodes = doc.DocumentNode.SelectNodes("//a[@href]");
+            if (linkNodes != null)
+            {
+                foreach (var a in linkNodes)
+                {
+                    string href = a.GetAttributeValue("href", "");
+                    if (string.IsNullOrEmpty(href) || href.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+                        || href.StartsWith("#") || href.StartsWith("mailto"))
+                        continue;
+                    // 只处理同目录的 .htm/.html 链接，去掉路径只保留文件名.md
+                    string ext = Path.GetExtension(href).ToLowerInvariant();
+                    if (ext == ".htm" || ext == ".html")
+                    {
+                        string mdName = Path.ChangeExtension(Path.GetFileName(href), ".md");
+                        a.SetAttributeValue("href", mdName);
+                    }
+                }
+            }
+
             // 移除 head/script/style/导航噪音
             RemoveNodes(doc, "//head");
             RemoveNodes(doc, "//script");
