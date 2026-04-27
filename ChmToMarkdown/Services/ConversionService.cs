@@ -132,9 +132,11 @@ namespace ChmToMarkdown.Services
             {
                 ct.ThrowIfCancellationRequested();
 
-                string mdDir    = Path.Combine(outputDir, "MD");
+                string mdDir     = Path.Combine(outputDir, "MD");
+                string pagesDir  = Path.Combine(mdDir, "pages");
                 string imagesDir = Path.Combine(mdDir, "images");
                 Directory.CreateDirectory(mdDir);
+                Directory.CreateDirectory(pagesDir);
                 Directory.CreateDirectory(imagesDir);
 
                 var allHtmlFiles = Directory.GetFiles(extractedDir, "*.htm", SearchOption.AllDirectories)
@@ -177,12 +179,12 @@ namespace ChmToMarkdown.Services
                             continue;
                         }
 
-                        // md 文件放 outputDir\MD\ 根目录
-                        string mdOutPath = Path.Combine(mdDir,
+                        // md 文件放 MD\pages\ 子目录
+                        string mdOutPath = Path.Combine(pagesDir,
                             Path.ChangeExtension(Path.GetFileName(htmlFile), ".md"));
 
-                        // images 文件夹和 md 文件同级，相对路径直接是 "images"
-                        string md = _converter.Convert(htmlFile, extractedDir, imagesDir, "images");
+                        // images 相对于 pages 目录，路径为 "../images"
+                        string md = _converter.Convert(htmlFile, extractedDir, imagesDir, "../images");
                         File.WriteAllText(mdOutPath, md, Encoding.UTF8);
 
                         prog.CompletedFiles.Add(relPath);
@@ -198,7 +200,7 @@ namespace ChmToMarkdown.Services
                 }
                 else
                 {
-                    string mdOutPath = Path.Combine(mdDir, "output.md");
+                    string mdOutPath = Path.Combine(pagesDir, "output.md");
                     // 单文件模式用 StreamWriter 一次打开，避免每次 AppendAllText 的 open/close 开销
                     bool isAppend = completedSet.Count > 0;
                     using var sw = new StreamWriter(mdOutPath, isAppend, Encoding.UTF8);
@@ -244,13 +246,13 @@ namespace ChmToMarkdown.Services
                     var toc = TocService.ParseHhc(extractedDir);
                     if (toc.Count > 0)
                     {
-                        // 建立 htm文件名(小写) → md文件名 的映射
+                        // 建立 htm文件名(小写) → "pages/md文件名" 的映射
                         var mdFileMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                        foreach (var f in Directory.GetFiles(mdDir, "*.md", SearchOption.TopDirectoryOnly))
+                        foreach (var f in Directory.GetFiles(pagesDir, "*.md", SearchOption.TopDirectoryOnly))
                         {
                             string mdName  = Path.GetFileName(f);
                             string htmKey  = Path.ChangeExtension(mdName, ".htm").ToLowerInvariant();
-                            mdFileMap[htmKey] = mdName;
+                            mdFileMap[htmKey] = "pages/" + mdName;
                         }
                         TocService.GenerateIndex(toc, mdDir, mdFileMap);
                         progress.Report("index.md 生成完成。");

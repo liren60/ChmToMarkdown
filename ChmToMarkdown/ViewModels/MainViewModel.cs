@@ -120,11 +120,11 @@ namespace ChmToMarkdown.ViewModels
         public bool   ConvertDone       => Step == AppStep.Done;
         public string ExtractButtonText => Step == AppStep.Done ? "重新解压" : "第一步：解压 CHM";
 
-        // 只要 outputDir\extracted 和 outputDir\MD 都存在就可以生成索引
+        // 只要 outputDir\extracted 和 outputDir\MD\pages 都存在就可以生成索引
         public bool CanGenerateIndex => !IsBusy
             && !string.IsNullOrWhiteSpace(_outputDir)
             && Directory.Exists(Path.Combine(_outputDir, "extracted"))
-            && Directory.Exists(Path.Combine(_outputDir, "MD"));
+            && Directory.Exists(Path.Combine(_outputDir, "MD", "pages"));
 
         public void ClearLog() { _logBuilder.Clear(); LogText = string.Empty; }
 
@@ -182,12 +182,13 @@ namespace ChmToMarkdown.ViewModels
                         return;
                     }
 
+                    string pagesDir = Path.Combine(mdDir, "pages");
                     var mdFileMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                    foreach (var f in Directory.GetFiles(mdDir, "*.md", SearchOption.TopDirectoryOnly))
+                    foreach (var f in Directory.GetFiles(pagesDir, "*.md", SearchOption.TopDirectoryOnly))
                     {
                         string mdName = Path.GetFileName(f);
                         string htmKey = Path.ChangeExtension(mdName, ".htm").ToLowerInvariant();
-                        mdFileMap[htmKey] = mdName;
+                        mdFileMap[htmKey] = "pages/" + mdName;
                     }
 
                     TocService.GenerateIndex(toc, mdDir, mdFileMap);
