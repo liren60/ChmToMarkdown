@@ -237,6 +237,34 @@ namespace ChmToMarkdown.Services
                 DeleteProgress(outputDir);
                 progress.Report($"转换完成！共 {total} 个文件。");
 
+                // 生成目录索引 index.md
+                progress.Report("正在生成目录索引 index.md ...");
+                try
+                {
+                    var toc = TocService.ParseHhc(extractedDir);
+                    if (toc.Count > 0)
+                    {
+                        // 建立 htm文件名(小写) → md文件名 的映射
+                        var mdFileMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                        foreach (var f in Directory.GetFiles(mdDir, "*.md", SearchOption.TopDirectoryOnly))
+                        {
+                            string mdName  = Path.GetFileName(f);
+                            string htmKey  = Path.ChangeExtension(mdName, ".htm").ToLowerInvariant();
+                            mdFileMap[htmKey] = mdName;
+                        }
+                        TocService.GenerateIndex(toc, mdDir, mdFileMap);
+                        progress.Report("index.md 生成完成。");
+                    }
+                    else
+                    {
+                        progress.Report("未找到 .hhc 目录文件，跳过 index.md 生成。");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    progress.Report($"生成 index.md 失败: {ex.Message}");
+                }
+
             }, ct);
         }
     }
