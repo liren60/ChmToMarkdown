@@ -5,7 +5,6 @@ using System.IO;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
-using System.Windows;
 
 namespace ChmToMarkdown.ViewModels
 {
@@ -15,12 +14,14 @@ namespace ChmToMarkdown.ViewModels
     {
         private readonly ConversionService _service = new();
         private readonly StringBuilder _logBuilder = new();
+        private DateTime _lastLogFlush = DateTime.MinValue;
 
         private string _chmPath = string.Empty;
         private string _outputDir = string.Empty;
         private string _statusText = "请选择 CHM 文件和输出目录。";
         private string _logText = string.Empty;
         private int _progress;
+        private string _progressText = string.Empty;
         private bool _isBusy;
         private bool _isMultiFile = true;
         private AppStep _step = AppStep.Idle;
@@ -32,13 +33,12 @@ namespace ChmToMarkdown.ViewModels
             _chmPath = s.ChmPath;
             _outputDir = s.OutputDir;
             _isMultiFile = s.IsMultiFile;
-            // 启动时自动检测已解压目录
             if (!string.IsNullOrWhiteSpace(_outputDir))
                 DetectExistingExtracted();
         }
 
         private void SaveSettings() =>
-            SettingsService.Save(new Services.AppSettings { ChmPath = _chmPath, OutputDir = _outputDir, IsMultiFile = _isMultiFile });
+            SettingsService.Save(new AppSettings { ChmPath = _chmPath, OutputDir = _outputDir, IsMultiFile = _isMultiFile });
 
         public string ChmPath
         {
@@ -58,32 +58,50 @@ namespace ChmToMarkdown.ViewModels
                 DetectExistingExtracted();
             }
         }
-        public string StatusText { get => _statusText; set { _statusText = value; OnPropertyChanged(); } }
-        public string LogText { get => _logText; private set { _logText = value; OnPropertyChanged(); } }
-        public int Progress { get => _progress; set { _progress = value; OnPropertyChanged(); } }
-        public bool IsMultiFile { get => _isMultiFile; set { _isMultiFile = value; OnPropertyChanged(); SaveSettings(); } }
+
+        public string StatusText   { get => _statusText;   set { _statusText = value;   OnPropertyChanged(); } }
+        public string LogText      { get => _logText;      private set { _logText = value; OnPropertyChanged(); } }
+        public int    Progress     { get => _progress;     set { _progress = value;     OnPropertyChanged(); } }
+        public string ProgressText { get => _progressText; set { _progressText = value; OnPropertyChanged(); } }
+        public bool   IsMultiFile  { get => _isMultiFile;  set { _isMultiFile = value;  OnPropertyChanged(); SaveSettings(); } }
 
         public bool IsBusy
         {
             get => _isBusy;
-            set { _isBusy = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanExtract)); OnPropertyChanged(nameof(CanConvert)); }
+            set
+            {
+                _isBusy = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(CanExtract));
+                OnPropertyChanged(nameof(CanConvert));
+                OnPropertyChanged(nameof(IsExtracting));
+                OnPropertyChanged(nameof(IsConverting));
+            }
         }
 
         public AppStep Step
         {
             get => _step;
-            private set { _step = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanExtract)); OnPropertyChanged(nameof(CanConvert)); OnPropertyChanged(nameof(ExtractButtonText)); }
+            private set
+            {
+                _step = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(CanExtract));
+                OnPropertyChanged(nameof(CanConvert));
+                OnPropertyChanged(nameof(ExtractButtonText));
+                OnPropertyChanged(nameof(IsExtracting));
+                OnPropertyChanged(nameof(IsConverting));
+            }
         }
 
-        public bool CanExtract => !IsBusy && !string.IsNullOrWhiteSpace(ChmPath) && !string.IsNullOrWhiteSpace(OutputDir) && (Step == AppStep.Idle || Step == AppStep.Done);
-        public bool CanConvert => !IsBusy && Step == AppStep.WaitingConfirm;
+        public bool CanExtract    => !IsBusy && !string.IsNullOrWhiteSpace(ChmPath) && !string.IsNullOrWhiteSpace(OutputDir) && (Step == AppStep.Idle || Step == AppStep.Done);
+        public bool CanConvert    => !IsBusy && Step == AppStep.WaitingConfirm;
+        public bool IsExtracting  => IsBusy && Step == AppStep.Extracting;
+        public bool IsConverting  => IsBusy && Step == AppStep.Converting;
         public string ExtractButtonText => Step == AppStep.Done ? "重新解压" : "第一步：解压 CHM";
 
         public void ClearLog() { _logBuilder.Clear(); LogText = string.Empty; }
 
-        /// <summary>
-        /// 检测 OutputDir 下是否已有 extracted 目录，有则自动跳到 WaitingConfirm
-        /// </summary>
         private void DetectExistingExtracted()
         {
             if (string.IsNullOrWhiteSpace(_outputDir)) return;
@@ -99,26 +117,24 @@ namespace ChmToMarkdown.ViewModels
             }
         }
 
-        public string LogFilePath =>
-            Path.Combine(AppContext.BaseDirectory, "conversion.log");
+        public string LogFilePath => Path.Combine(AppContext.BaseDirectory, "conversion.log");
 
-        private void AppendLog(string msg)
+        // 节流：每 150ms 最多刷新一次 UI 日志，避免大量文件时 UI 阻塞
+        private void AppendLog(string msg, bool forceFlush = false)
         {
             string line = $"[{DateTime.Now:HH:mm:ss}] {msg}";
             _logBuilder.AppendLine(line);
-            LogText = _logBuilder.ToString();
             StatusText = msg;
-            try
+
+            var now = DateTime.Now;
+            if (forceFlush || (now - _lastLogFlush).TotalMilliseconds >= 150)
             {
-                File.AppendAllText(LogFilePath, line + Environment.NewLine, System.Text.Encoding.UTF8);
-            }
-            catch (Exception ex)
-            {
-                // 写日志失败时把原因追加到 UI（不递归调用 AppendLog）
-                string errLine = $"[{DateTime.Now:HH:mm:ss}] [日志写入失败] {ex.Message} | 路径: {LogFilePath}";
-                _logBuilder.AppendLine(errLine);
                 LogText = _logBuilder.ToString();
+                _lastLogFlush = now;
             }
+
+            try { File.AppendAllText(LogFilePath, line + Environment.NewLine, Encoding.UTF8); }
+            catch { }
         }
 
         public async Task ExtractAsync()
@@ -126,17 +142,20 @@ namespace ChmToMarkdown.ViewModels
             IsBusy = true;
             Step = AppStep.Extracting;
             Progress = 0;
+            ProgressText = string.Empty;
             _extractedDir = null;
-            AppendLog("开始解压...");
+            AppendLog("开始解压...", true);
             try
             {
-                var p = new Progress<string>(msg => Application.Current.Dispatcher.Invoke(() => AppendLog(msg)));
+                var p = new Progress<string>(msg => AppendLog(msg));
                 _extractedDir = await _service.ExtractAsync(ChmPath, OutputDir, p);
+                AppendLog("解压完成。", true);
                 Step = AppStep.WaitingConfirm;
             }
             catch (Exception ex)
             {
-                Application.Current.Dispatcher.Invoke(() => { AppendLog($"解压错误: {ex.Message}"); if (ex.InnerException != null) AppendLog($"详情: {ex.InnerException.Message}"); });
+                AppendLog($"解压错误: {ex.Message}", true);
+                if (ex.InnerException != null) AppendLog($"详情: {ex.InnerException.Message}", true);
                 Step = AppStep.Idle;
             }
             finally { IsBusy = false; }
@@ -148,18 +167,26 @@ namespace ChmToMarkdown.ViewModels
             IsBusy = true;
             Step = AppStep.Converting;
             Progress = 0;
-            AppendLog("开始转换...");
+            ProgressText = "0%";
+            AppendLog("开始转换...", true);
             try
             {
                 var mode = IsMultiFile ? ConversionMode.MultiFile : ConversionMode.SingleFile;
-                var p = new Progress<string>(msg => Application.Current.Dispatcher.Invoke(() => AppendLog(msg)));
-                var pp = new Progress<int>(pct => Application.Current.Dispatcher.Invoke(() => Progress = pct));
+                var p  = new Progress<string>(msg => AppendLog(msg));
+                var pp = new Progress<int>(pct =>
+                {
+                    Progress = pct;
+                    ProgressText = $"{pct}%";
+                });
                 await _service.ConvertAsync(_extractedDir, OutputDir, mode, p, pp);
+                ProgressText = "100%";
+                AppendLog("转换完成！", true);
                 Step = AppStep.Done;
             }
             catch (Exception ex)
             {
-                Application.Current.Dispatcher.Invoke(() => { AppendLog($"转换错误: {ex.Message}"); if (ex.InnerException != null) AppendLog($"详情: {ex.InnerException.Message}"); });
+                AppendLog($"转换错误: {ex.Message}", true);
+                if (ex.InnerException != null) AppendLog($"详情: {ex.InnerException.Message}", true);
                 Step = AppStep.WaitingConfirm;
             }
             finally { IsBusy = false; }

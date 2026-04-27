@@ -11,6 +11,9 @@
         Background="#F3F4F6">
 
     <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+        <local:PercentToWidthConverter x:Key="PctToWidth"/>
+
         <!-- 卡片样式 -->
         <Style x:Key="Card" TargetType="Border">
             <Setter Property="Background" Value="White"/>
@@ -213,11 +216,29 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="4"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="6"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Text="步骤 1" Style="{StaticResource FieldLabel}" HorizontalAlignment="Center"/>
                         <Button Grid.Row="2" Content="{Binding ExtractButtonText}" Width="160"
                                 Style="{StaticResource PrimaryBtn}" IsEnabled="{Binding CanExtract}"
                                 Click="Extract_Click"/>
+                        <!-- Spinner -->
+                        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Center"
+                                    Visibility="{Binding IsExtracting, Converter={StaticResource BoolToVis}}">
+                            <Ellipse Width="16" Height="16" Margin="0,0,6,0">
+                                <Ellipse.RenderTransform>
+                                    <RotateTransform x:Name="SpinnerRotate" CenterX="8" CenterY="8"/>
+                                </Ellipse.RenderTransform>
+                                <Ellipse.Fill>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                        <GradientStop Color="#2563EB" Offset="0"/>
+                                        <GradientStop Color="Transparent" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Ellipse.Fill>
+                            </Ellipse>
+                            <TextBlock Text="正在解压..." FontSize="11" Foreground="#2563EB" VerticalAlignment="Center"/>
+                        </StackPanel>
                     </Grid>
 
                     <!-- 箭头 -->
@@ -229,11 +250,18 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="4"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="6"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Text="步骤 2" Style="{StaticResource FieldLabel}" HorizontalAlignment="Center"/>
                         <Button Grid.Row="2" Content="开始转换" Width="160"
                                 Style="{StaticResource SuccessBtn}" IsEnabled="{Binding CanConvert}"
                                 Click="Convert_Click"/>
+                        <!-- 转换进度文字 -->
+                        <TextBlock Grid.Row="4" Text="{Binding ProgressText}"
+                                   HorizontalAlignment="Center" FontSize="11" Foreground="#16A34A"
+                                   FontWeight="SemiBold"
+                                   Visibility="{Binding IsConverting, Converter={StaticResource BoolToVis}}"/>
                     </Grid>
                 </StackPanel>
 
@@ -300,22 +328,33 @@
                 <TextBlock Text="{Binding StatusText}" FontSize="12" Foreground="#6B7280" VerticalAlignment="Center"/>
             </Border>
 
-            <Border Grid.Column="1" Background="White" CornerRadius="6" Padding="12,6" MinWidth="120">
+            <Border Grid.Column="1" Background="White" CornerRadius="6" Padding="12,6" MinWidth="160">
                 <Border.Effect>
                     <DropShadowEffect BlurRadius="6" ShadowDepth="1" Opacity="0.06" Color="#000000"/>
                 </Border.Effect>
-                <ProgressBar Minimum="0" Maximum="100" Value="{Binding Progress}"
-                             Height="8" Width="120"
-                             Background="#F1F5F9" Foreground="#2563EB">
-                    <ProgressBar.Template>
-                        <ControlTemplate TargetType="ProgressBar">
-                            <Border CornerRadius="4" Background="#F1F5F9" Height="8">
-                                <Border x:Name="PART_Indicator" HorizontalAlignment="Left"
-                                        CornerRadius="4" Background="#2563EB"/>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding ProgressText}" FontSize="11" Foreground="#6B7280"
+                               VerticalAlignment="Center" Margin="0,0,8,0" MinWidth="30"
+                               HorizontalAlignment="Right"/>
+                    <Grid Width="120" Height="8">
+                        <Border CornerRadius="4" Background="#F1F5F9"/>
+                        <Grid HorizontalAlignment="Left"
+                              Width="{Binding Progress, Converter={StaticResource PctToWidth}}">
+                            <Border x:Name="ProgressFill" CornerRadius="4" Background="#2563EB"/>
+                            <!-- 光晕层 -->
+                            <Border x:Name="ProgressGlow" CornerRadius="4" Opacity="0"
+                                    Visibility="{Binding IsConverting, Converter={StaticResource BoolToVis}}">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                        <GradientStop Color="Transparent" Offset="0"/>
+                                        <GradientStop Color="#60A5FA" Offset="0.5"/>
+                                        <GradientStop Color="Transparent" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.Background>
                             </Border>
-                        </ControlTemplate>
-                    </ProgressBar.Template>
-                </ProgressBar>
+                        </Grid>
+                    </Grid>
+                </StackPanel>
             </Border>
         </Grid>
     </Grid>

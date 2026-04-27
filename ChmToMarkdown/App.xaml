@@ -5,5 +5,7 @@
              StartupUri="MainWindow.xaml">
     <Application.Resources>
         <local:InverseBoolConverter x:Key="InverseBool"/>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+        <local:PercentToWidthConverter x:Key="PctToWidth"/>
     </Application.Resources>
 </Application>
