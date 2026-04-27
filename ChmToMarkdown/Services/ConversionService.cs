@@ -78,7 +78,7 @@ namespace ChmToMarkdown.Services
                 var psi = new ProcessStartInfo
                 {
                     FileName = sevenZip,
-                    Arguments = $"x \"{chmPath}\" -o\"{extractedDir}\" -y -bsp1",
+                    Arguments = $"x \"{chmPath}\" -o\"{extractedDir}\" -y -bsp1 -mmt",
                     UseShellExecute = false,
                     CreateNoWindow = true,
                     RedirectStandardOutput = true,
@@ -89,20 +89,21 @@ namespace ChmToMarkdown.Services
                     ?? throw new InvalidOperationException("无法启动 7z.exe");
                 using var reg = ct.Register(() => { try { proc.Kill(); } catch { } });
 
-                // 实时读取输出解析进度百分比
+                // 实时读取输出解析进度百分比，每5%记一次日志
                 string? line;
+                int lastReportedPct = -1;
                 while ((line = proc.StandardOutput.ReadLine()) != null)
                 {
                     ct.ThrowIfCancellationRequested();
-                    // 7z -bsp1 输出格式: "  3% - filename" 或 "  3%"
                     var trimmed = line.Trim();
-                    if (trimmed.Length >= 3 && trimmed[trimmed.Length - 1] == '%'
-                        || (trimmed.IndexOf('%') is int pi && pi > 0 && pi < 5))
+                    int pctIdx = trimmed.IndexOf('%');
+                    if (pctIdx > 0 && pctIdx < 5 && int.TryParse(trimmed.Substring(0, pctIdx).Trim(), out int pct))
                     {
-                        int pctIdx = trimmed.IndexOf('%');
-                        if (pctIdx > 0 && int.TryParse(trimmed.Substring(0, pctIdx).Trim(), out int pct))
+                        progressPct?.Report(pct);
+                        // 每5%才写一次日志，避免频繁UI刷新和磁盘写入
+                        if (pct / 5 > lastReportedPct / 5)
                         {
-                            progressPct?.Report(pct);
+                            lastReportedPct = pct;
                             progress.Report($"解压中 {pct}%...");
                         }
                     }
@@ -180,18 +181,29 @@ namespace ChmToMarkdown.Services
                         string imageRelativePrefix = Path.GetRelativePath(
                             Path.GetDirectoryName(mdOutPath)!, imagesDir).Replace('\\', '/');
 
-                        progress.Report($"转换 ({i + 1}/{total}): {relPath}");
                         string md = _converter.Convert(htmlFile, extractedDir, imagesDir, imageRelativePrefix);
                         File.WriteAllText(mdOutPath, md, Encoding.UTF8);
 
                         prog.CompletedFiles.Add(relPath);
-                        SaveProgress(prog, outputDir);
-                        progressPct.Report((i + 1) * 100 / total);
+                        // 每20个文件保存一次断点，减少磁盘写入
+                        if (prog.CompletedFiles.Count % 20 == 0)
+                            SaveProgress(prog, outputDir);
+
+                        int pct = (i + 1) * 100 / total;
+                        progressPct.Report(pct);
+                        // 每10个文件记一次日志
+                        if ((i + 1) % 10 == 0 || i + 1 == total)
+                            progress.Report($"转换进度 {pct}%，已完成 {i + 1}/{total} 个文件");
                     }
+                    // 确保最终断点被保存
+                    SaveProgress(prog, outputDir);
                 }
                 else
                 {
                     string mdOutPath = Path.Combine(outputDir, "output.md");
+                    // 单文件模式用 StreamWriter 一次打开，避免每次 AppendAllText 的 open/close 开销
+                    bool isAppend = completedSet.Count > 0;
+                    using var sw = new StreamWriter(mdOutPath, isAppend, Encoding.UTF8);
 
                     for (int i = 0; i < allHtmlFiles.Count; i++)
                     {
@@ -206,14 +218,21 @@ namespace ChmToMarkdown.Services
                             continue;
                         }
 
-                        progress.Report($"转换 ({i + 1}/{total}): {relPath}");
                         string md = _converter.Convert(htmlFile, extractedDir, imagesDir, "images");
-                        File.AppendAllText(mdOutPath, md + "\n\n", Encoding.UTF8);
+                        sw.Write(md);
+                        sw.WriteLine();
+                        sw.WriteLine();
 
                         prog.CompletedFiles.Add(relPath);
-                        SaveProgress(prog, outputDir);
-                        progressPct.Report((i + 1) * 100 / total);
+                        if (prog.CompletedFiles.Count % 20 == 0)
+                            SaveProgress(prog, outputDir);
+
+                        int pct = (i + 1) * 100 / total;
+                        progressPct.Report(pct);
+                        if ((i + 1) % 10 == 0 || i + 1 == total)
+                            progress.Report($"转换进度 {pct}%，已完成 {i + 1}/{total} 个文件");
                     }
+                    SaveProgress(prog, outputDir);
                 }
 
                 prog.Finished = true;
